@@ -33,14 +33,14 @@ public class MovieCatalogResource {
     public List<CatalogItem> getCatalog(@PathVariable("userId") String userId) {
         
         // Get all rated movies by userId
-        UserRatings userRatings = restTemplate.getForObject("http://localhost:8083/ratingsdata/users/" + userId, UserRatings.class);
+        UserRatings userRatings = restTemplate.getForObject("http://movie-ratings-service/ratingsdata/users/" + userId, UserRatings.class);
         
         // For each movieId, call info service to get details
         return userRatings.getUserRatings().stream().map(rating -> {
            // Movie movie = restTemplate.getForObject("http://localhost:8082/movies/" + rating.getMovieId(), Movie.class);
            Movie movie = webClientBuilder.build()
                    .get()
-                   .uri("http://localhost:8082/movies/" + rating.getMovieId())
+                   .uri("http://movie-info-service/movies/" + rating.getMovieId())
                    .retrieve()
                    .bodyToMono(Movie.class)
                    .block();
