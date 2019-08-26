@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.apache.tomcat.util.modeler.ParameterInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,11 +11,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import com.sun.javadoc.ParameterizedType;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 
 import io.dungmd.models.CatalogItem;
 import io.dungmd.models.Movie;
-import io.dungmd.models.Rating;
 import io.dungmd.models.UserRatings;
 
 @RestController
@@ -30,11 +28,21 @@ public class MovieCatalogResource {
     private WebClient.Builder webClientBuilder;
     
     @RequestMapping("/{userId}")
+    @HystrixCommand(fallbackMethod = "getFallbackCatalog")
     public List<CatalogItem> getCatalog(@PathVariable("userId") String userId) {
         
         // Get all rated movies by userId       
         UserRatings userRatings = restTemplate.getForObject("http://movie-ratings-service/ratingsdata/users/" + userId, UserRatings.class);
-        
+        return getMovieInfo(userRatings);
+    }
+
+    public List<CatalogItem> getFallbackCatalog(@PathVariable("userId") String userId) {
+        return Arrays.asList(new CatalogItem("No movie", "", -1));
+    }
+
+    // This does not have effect
+    @HystrixCommand(fallbackMethod = "getFallbackMovieInfo")
+    public List<CatalogItem> getMovieInfo(UserRatings userRatings) {
         // For each movieId, call info service to get details
         return userRatings.getUserRatings().stream().map(rating -> {
            // Movie movie = restTemplate.getForObject("http://localhost:8082/movies/" + rating.getMovieId(), Movie.class);
@@ -45,6 +53,13 @@ public class MovieCatalogResource {
                    .bodyToMono(Movie.class)
                    .block();
            return new CatalogItem(movie.getName(), movie.getDescription(), rating.getRating());
-        }).collect(Collectors.toList());
+        }).collect(Collectors.toList());        
     }
+
+    public List<CatalogItem> getFallbackMovieInfo(UserRatings userRatings) {
+        return userRatings.getUserRatings().stream().map(rating -> {
+            return new CatalogItem("Name", "Description", -1);
+         }).collect(Collectors.toList());                
+    }
+
 }
