@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
 
 import io.dungmd.models.CatalogItem;
 import io.dungmd.models.Movie;
@@ -17,7 +18,13 @@ public class MovieInfoClient {
     private WebClient.Builder webClientBuilder;
 
     // This does not have effect
-    @HystrixCommand(fallbackMethod = "getFallbackMovieInfo")
+    @HystrixCommand(fallbackMethod = "getFallbackMovieInfo",
+            commandProperties = {
+                    @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "2000"),
+                    @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "5"),
+                    @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage", value = "50"),
+                    @HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds", value = "5000")
+            })
     public CatalogItem getMovieInfo(Rating rating) {
         // Movie movie = restTemplate.getForObject("http://localhost:8082/movies/" + rating.getMovieId(), Movie.class);
         Movie movie = webClientBuilder.build()
