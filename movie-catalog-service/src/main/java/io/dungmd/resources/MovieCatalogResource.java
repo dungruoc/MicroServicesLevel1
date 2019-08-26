@@ -15,7 +15,10 @@ import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 
 import io.dungmd.models.CatalogItem;
 import io.dungmd.models.Movie;
+import io.dungmd.models.Rating;
 import io.dungmd.models.UserRatings;
+import io.dungmd.services.MovieInfoClient;
+import io.dungmd.services.UserRatingsClient;
 
 @RestController
 @RequestMapping("/catalog")
@@ -27,39 +30,19 @@ public class MovieCatalogResource {
     @Autowired
     private WebClient.Builder webClientBuilder;
     
+    @Autowired
+    MovieInfoClient movieInfoClient;
+    
+    @Autowired
+    UserRatingsClient userRatingsClient;
+    
     @RequestMapping("/{userId}")
-    @HystrixCommand(fallbackMethod = "getFallbackCatalog")
     public List<CatalogItem> getCatalog(@PathVariable("userId") String userId) {
         
         // Get all rated movies by userId       
-        UserRatings userRatings = restTemplate.getForObject("http://movie-ratings-service/ratingsdata/users/" + userId, UserRatings.class);
-        return getMovieInfo(userRatings);
-    }
-
-    public List<CatalogItem> getFallbackCatalog(@PathVariable("userId") String userId) {
-        return Arrays.asList(new CatalogItem("No movie", "", -1));
-    }
-
-    // This does not have effect
-    @HystrixCommand(fallbackMethod = "getFallbackMovieInfo")
-    public List<CatalogItem> getMovieInfo(UserRatings userRatings) {
+        UserRatings userRatings = userRatingsClient.getUserRatings(userId);
         // For each movieId, call info service to get details
-        return userRatings.getUserRatings().stream().map(rating -> {
-           // Movie movie = restTemplate.getForObject("http://localhost:8082/movies/" + rating.getMovieId(), Movie.class);
-           Movie movie = webClientBuilder.build()
-                   .get()
-                   .uri("http://movie-info-service/movies/" + rating.getMovieId())
-                   .retrieve()
-                   .bodyToMono(Movie.class)
-                   .block();
-           return new CatalogItem(movie.getName(), movie.getDescription(), rating.getRating());
-        }).collect(Collectors.toList());        
-    }
-
-    public List<CatalogItem> getFallbackMovieInfo(UserRatings userRatings) {
-        return userRatings.getUserRatings().stream().map(rating -> {
-            return new CatalogItem("Name", "Description", -1);
-         }).collect(Collectors.toList());                
+        return userRatings.getUserRatings().stream().map(rating -> movieInfoClient.getMovieInfo(rating)).collect(Collectors.toList());
     }
 
 }
