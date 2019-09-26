@@ -1,0 +1,12 @@
+server:
+  port: 8083
+spring:
+  application:
+    name: movie-ratings-service
+
+eureka:
+  client:
+    registerWithEureka: true
+    fetchRegistry: true
+    serviceUrl:
+      defaultZone: http://dungdang3162.cybersoft.vn:8761/eureka
